@@ -166,6 +166,52 @@ local function input(prefix, y, centrized, historyText, foreground, env)
             elseif char >= 32 and UNICODE.len(prefixLen .. text) < width - prefixLen then
                 text = UNICODE.sub(text, 1, cursorPos - 1) .. UNICODE.char(char) .. UNICODE.sub(text, cursorPos, -1)
                 cursorPos = cursorPos + 1
+            elseif code == 15 then
+                local function isIdOrDot(c)
+                    return c=="." or c=="_" or c:byte()>("A"):byte() and c:byte()<("z"):byte()
+                end
+                local function findStart(text, lastPos)
+                    local i=lastPos
+                    while i>0 and isIdOrDot(text:sub(i,i)) do
+                        i=i-1
+                    end
+                    return i+1
+                end
+                
+                local function findFinish(text,lastPos)
+                    local i=lastPos
+                    while i>0 and text:sub(i,i)~="." do
+                        i=i-1
+                    end
+                    return i-1
+                end
+            
+                local start = findStart(text,cursorPos-1)
+                local finish = findFinish(text,cursorPos-1)
+                local tablePath = text:sub(start,finish)
+                local full = text:sub(start,cursorPos-1)
+                local currentLastSegment = text:sub(finish+2,cursorPos-1)
+                
+                local function nextLastSegment(currentLastSegment,tableValue)
+                    local iter = pairs(tableValue)
+                    if currentLastSegment=="" then
+                        return iter(tableValue)
+                    else
+                        while iter(tableValue)~=currentLastSegment do
+                        end
+                        return iter(tableValue)
+                    end
+                end
+                
+                local chunk = load("return " .. tablePath, _, _, env)
+                if chunk then
+                    local tableValue=chunk()
+                    local n=nextLastSegment(currentLastSegment,tableValue)
+                    text = text:gsub(full,tablePath.."."..n)
+                    cursorPos=cursorPos-finish+#n
+                end
+                
+                --prn(tablePath,full,currentLastSegment)
             end
             
             cursorState = 1
